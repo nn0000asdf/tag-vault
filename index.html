@@ -12,6 +12,13 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tag Vault — プロデューサータグ図鑑</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00d4ff">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tag Vault">
 <style>
   :root {
     --ink: #e8eeff;
@@ -245,6 +252,9 @@
   .mini:hover { background: rgba(0,212,255,.08); border-color: rgba(0,212,255,.2); color: var(--accent); }
   .mini.danger:hover { background: rgba(229,62,62,.1); border-color: rgba(229,62,62,.3); color: #e53e3e; }
   .mini.playing { color: var(--accent); border-color: rgba(0,212,255,.3); background: rgba(0,212,255,.06); }
+  .mini.fav-btn { font-size: 14px; }
+  .mini.fav-btn.on { color: var(--warn); }
+  .mini.fav-btn.on:hover { background: rgba(255,204,0,.1); border-color: rgba(255,204,0,.3); color: var(--warn); }
 
   .audio-progress {
     position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
@@ -1064,6 +1074,7 @@
         <div id="genre-dropdown" class="suggest-list hidden" style="min-width:200px;max-height:260px;overflow-y:auto;position:absolute;left:164px;top:0;"></div>
       </div>
       <span id="active-genre-label" class="filter-chip on hidden" style="cursor:pointer;">すべて</span>
+      <button class="filter-chip" id="fav-filter-btn">★ お気に入り</button>
       <select class="sort-select" id="sort-select">
         <option value="new">新着順</option>
         <option value="name">名前順</option>
@@ -1259,7 +1270,10 @@
         </div>
         <p class="status" id="profile-name-status"></p>
       </div>
-      <button class="btn ghost sm" id="profile-name-edit-btn" style="margin-bottom:10px;">✏ 名前を編集</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <button class="btn ghost sm" id="profile-name-edit-btn">✏ 名前を編集</button>
+        <button class="btn ghost sm" id="profile-share-btn">🔗 シェア</button>
+      </div>
       <div class="profile-genres" id="profile-genres"></div>
     </div>
 
@@ -1582,7 +1596,18 @@
   var avatarMap = {}; // producer_name → avatar_url
   var mainTagMap = {}; // producer_name → main tag id
   var isAdmin = location.search.indexOf('admin') >= 0;
-  var activeGenre = 'all', activeSortKey = 'new';
+  var activeGenre = 'all', activeSortKey = 'new', favOnly = false;
+
+  /* ---- お気に入り（この端末に保存） ---- */
+  var FAV_KEY = 'tv_favorites';
+  function getFavs(){ try{ return JSON.parse(localStorage.getItem(FAV_KEY))||[]; }catch(e){ return []; } }
+  function isFav(name){ return getFavs().indexOf(name)>=0; }
+  function toggleFav(name){
+    var f=getFavs(), i=f.indexOf(name);
+    if(i>=0) f.splice(i,1); else f.push(name);
+    try{ localStorage.setItem(FAV_KEY, JSON.stringify(f)); }catch(e){}
+    return i<0;
+  }
   var currentAudio = null, currentPlayId = null;
   var searchTimer = null;
 
@@ -1770,6 +1795,16 @@
       renderGrid();
       renderStats();
       if(window._quizPending){ window._quizPending=false; nextQuestion(); }
+      // 共有リンク（?producer=名前）から直接プロフィールを開く（初回のみ）
+      if(!window._deepLinkChecked){
+        window._deepLinkChecked = true;
+        try {
+          var dlName = new URLSearchParams(location.search).get('producer');
+          if(dlName && tags.some(function(t){ return t.name===dlName; })){
+            setTimeout(function(){ openProfile(dlName); }, 300);
+          }
+        } catch(e){}
+      }
       // プロフィールのひらがなを取得
       sb.from('profiles').select('producer_name,name_kana,genres,avatar_url,main_tag_id').then(function(pr){
         if(!pr.error) (pr.data||[]).forEach(function(p){
@@ -1855,10 +1890,16 @@
     renderGrid();
   }
   $('#filter-row').addEventListener('click', function(e){
+    if(e.target.closest('#fav-filter-btn')) return; // お気に入りは別ハンドラー
     var c = e.target.closest('.filter-chip');
     if(c) setGenre(c.dataset.genre);
   });
   $('#sort-select').addEventListener('change', function(){ activeSortKey = this.value; renderGrid(); });
+  $('#fav-filter-btn').addEventListener('click', function(){
+    favOnly = !favOnly;
+    this.classList.toggle('on', favOnly);
+    renderGrid();
+  });
 
   /* ---- Space background ---- */
   (function(){
@@ -2072,12 +2113,13 @@
     if(activeGenre !== 'all') producers = producers.filter(function(p){
       return p.tags.indexOf(activeGenre)>=0 || (profileGenreMap[p.name]||[]).indexOf(activeGenre)>=0;
     });
+    if(favOnly){ var favs=getFavs(); producers = producers.filter(function(p){ return favs.indexOf(p.name)>=0; }); }
     if(activeSortKey === 'name') producers.sort(function(a,b){ return a.name.localeCompare(b.name,'ja'); });
     else producers.sort(function(a,b){ return new Date(b.newest.created)-new Date(a.newest.created); });
 
     var grid = $('#grid'); grid.innerHTML = '';
     $('#browse-empty').classList.toggle('hidden', tags.length > 0 || !!q);
-    $('#browse-no-results').classList.toggle('hidden', producers.length > 0 || (!q && activeGenre === 'all'));
+    $('#browse-no-results').classList.toggle('hidden', producers.length > 0 || (!q && activeGenre === 'all' && !favOnly));
 
 
     producers.forEach(function(p, idx){
@@ -2101,6 +2143,7 @@
         (chips ? '<div class="chips">'+chips+'</div>' : '')+
         '<div class="cardfoot">'+
           (audioTag ? '<button class="mini play" data-id="'+audioTag.id+'">'+t('play_tag')+'</button>' : '<span style="font-size:12px;color:var(--muted);">'+t('no_audio_reg')+'</span>')+
+          '<button class="mini fav-btn'+(isFav(p.name)?' on':'')+'" data-name="'+esc(p.name)+'" title="'+t('btn_fav')+'">'+(isFav(p.name)?'★':'☆')+'</button>'+
           '<button class="mini danger report" data-id="'+p.newest.id+'">⚑</button>'+
           '<button class="mini del-producer" data-name="'+esc(p.name)+'" style="color:#e53e3e;">'+t('delete')+'</button>'+
         '</div>'+
@@ -2141,6 +2184,13 @@
     $all('.producer-link', grid).forEach(function(s){ s.addEventListener('click', function(e){ e.stopPropagation(); openProfile(s.dataset.name); }); });
     $all('.report', grid).forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); reportTag(b.dataset.id); }); });
     $all('.play', grid).forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); playTag(b.dataset.id, b); }); });
+    $all('.fav-btn', grid).forEach(function(b){ b.addEventListener('click', function(e){
+      e.stopPropagation();
+      var nowFav = toggleFav(b.dataset.name);
+      b.classList.toggle('on', nowFav);
+      b.textContent = nowFav ? '★' : '☆';
+      if(favOnly) renderGrid();
+    }); });
 
     // チップクリック pop アニメ
     $all('.chip', grid).forEach(function(c){ c.addEventListener('click', function(e){
@@ -2638,7 +2688,7 @@
       add_rec:'録音する', add_submit:'登録する', optional:'任意',
       no_results:'見つかりませんでした', no_results_sub:'別のキーワードやジャンルで探してみてください。',
       back:'← 戻る', edit:'編集', delete:'削除', save:'保存', cancel:'キャンセル', register:'登録', save_btn:'保存する', upload:'アップロード',
-      profile_label:'プロフィール紹介', edit_name:'✏ 名前を編集',
+      profile_label:'プロフィール紹介', edit_name:'✏ 名前を編集', btn_share:'🔗 シェア', share_copied:'リンクをコピーしました', share_text_post:' のプロデューサータグ図鑑 | Tag Vault', btn_fav:'お気に入り', fav_filter:'★ お気に入り', fav_added:'お気に入りに追加しました', fav_removed:'お気に入りから外しました',
       sec_avatar:'アイコン画像', sec_bio:'紹介文', sec_genre:'ジャンル', sec_audio:'鳴き声', sec_tracks:'楽曲', sec_sns:'SNS', sec_similar:'似た声のプロデューサー',
       avatar_hint:'画像を登録するとホーム画面のアイコンに表示されます。', pick_image:'画像を選択',
       main_select_label:'ホームで流すタグを選択', mic_rec:'マイク録音', internal_audio:'内部音声',
@@ -2729,7 +2779,7 @@
       add_rec:'Record', add_submit:'Register', optional:'Optional',
       no_results:'No results found', no_results_sub:'Try a different keyword or genre.',
       back:'← Back', edit:'Edit', delete:'Delete', save:'Save', cancel:'Cancel', register:'Register', save_btn:'Save', upload:'Upload',
-      profile_label:'Profile', edit_name:'✏ Edit Name',
+      profile_label:'Profile', edit_name:'✏ Edit Name', btn_share:'🔗 Share', share_copied:'Link copied', share_text_post:' on Tag Vault — Producer Tag Encyclopedia', btn_fav:'Favorite', fav_filter:'★ Favorites', fav_added:'Added to favorites', fav_removed:'Removed from favorites',
       sec_avatar:'Profile Image', sec_bio:'Bio', sec_genre:'Genre', sec_audio:'Beat Tags', sec_tracks:'Tracks', sec_sns:'SNS', sec_similar:'Similar Producers',
       avatar_hint:'Your image will appear as the icon on the home screen.', pick_image:'Select Image',
       main_select_label:'Select tag to play on home', mic_rec:'Mic Recording', internal_audio:'Internal Audio',
@@ -2817,7 +2867,7 @@
       add_rec:'녹음', add_submit:'등록', optional:'선택',
       no_results:'결과를 찾을 수 없습니다', no_results_sub:'다른 키워드나 장르로 검색해 보세요.',
       back:'← 뒤로', edit:'편집', delete:'삭제', save:'저장', cancel:'취소', register:'등록', save_btn:'저장', upload:'업로드',
-      profile_label:'프로필', edit_name:'✏ 이름 편집',
+      profile_label:'프로필', edit_name:'✏ 이름 편집', btn_share:'🔗 공유', share_copied:'링크를 복사했습니다', share_text_post:' | Tag Vault 프로듀서 태그 도감', btn_fav:'즐겨찾기', fav_filter:'★ 즐겨찾기', fav_added:'즐겨찾기에 추가했습니다', fav_removed:'즐겨찾기에서 제거했습니다',
       sec_avatar:'프로필 이미지', sec_bio:'소개', sec_genre:'장르', sec_audio:'비트 태그', sec_tracks:'트랙', sec_sns:'SNS', sec_similar:'비슷한 프로듀서',
       avatar_hint:'이미지는 홈 화면의 아이콘으로 표시됩니다.', pick_image:'이미지 선택',
       main_select_label:'홈에서 재생할 태그 선택', mic_rec:'마이크 녹음', internal_audio:'내부 오디오',
@@ -2905,7 +2955,7 @@
       add_rec:'Grabar', add_submit:'Registrar', optional:'Opcional',
       no_results:'Sin resultados', no_results_sub:'Prueba con otra palabra clave o género.',
       back:'← Volver', edit:'Editar', delete:'Eliminar', save:'Guardar', cancel:'Cancelar', register:'Registrar', save_btn:'Guardar', upload:'Subir',
-      profile_label:'Perfil', edit_name:'✏ Editar Nombre',
+      profile_label:'Perfil', edit_name:'✏ Editar Nombre', btn_share:'🔗 Compartir', share_copied:'Enlace copiado', share_text_post:' en Tag Vault — Enciclopedia de Tags de Productores', btn_fav:'Favorito', fav_filter:'★ Favoritos', fav_added:'Añadido a favoritos', fav_removed:'Eliminado de favoritos',
       sec_avatar:'Imagen de perfil', sec_bio:'Bio', sec_genre:'Género', sec_audio:'Beat Tags', sec_tracks:'Canciones', sec_sns:'SNS', sec_similar:'Productores similares',
       avatar_hint:'Tu imagen aparecerá como ícono en la pantalla de inicio.', pick_image:'Seleccionar imagen',
       main_select_label:'Seleccionar tag para inicio', mic_rec:'Grabar Micrófono', internal_audio:'Audio Interno',
@@ -2993,7 +3043,7 @@
       add_rec:'Enregistrer', add_submit:'Enregistrer', optional:'Optionnel',
       no_results:'Aucun résultat', no_results_sub:'Essayez un autre mot-clé ou genre.',
       back:'← Retour', edit:'Modifier', delete:'Supprimer', save:'Sauvegarder', cancel:'Annuler', register:'Enregistrer', save_btn:'Sauvegarder', upload:'Téléverser',
-      profile_label:'Profil', edit_name:'✏ Modifier le Nom',
+      profile_label:'Profil', edit_name:'✏ Modifier le Nom', btn_share:'🔗 Partager', share_copied:'Lien copié', share_text_post:' sur Tag Vault — Encyclopédie des Tags de Producteurs', btn_fav:'Favori', fav_filter:'★ Favoris', fav_added:'Ajouté aux favoris', fav_removed:'Retiré des favoris',
       sec_avatar:'Image de profil', sec_bio:'Bio', sec_genre:'Genre', sec_audio:'Beat Tags', sec_tracks:'Chansons', sec_sns:'SNS', sec_similar:'Producteurs similaires',
       avatar_hint:'Votre image apparaîtra comme icône sur l\'écran d\'accueil.', pick_image:'Sélectionner une image',
       main_select_label:'Sélectionner le tag pour l\'accueil', mic_rec:'Enregistrement Micro', internal_audio:'Audio Interne',
@@ -3081,7 +3131,7 @@
       add_rec:'录音', add_submit:'注册', optional:'可选',
       no_results:'未找到结果', no_results_sub:'请尝试其他关键词或流派。',
       back:'← 返回', edit:'编辑', delete:'删除', save:'保存', cancel:'取消', register:'注册', save_btn:'保存', upload:'上传',
-      profile_label:'简介', edit_name:'✏ 编辑名称',
+      profile_label:'简介', edit_name:'✏ 编辑名称', btn_share:'🔗 分享', share_copied:'已复制链接', share_text_post:' | Tag Vault 制作人标签图鉴', btn_fav:'收藏', fav_filter:'★ 收藏', fav_added:'已添加到收藏', fav_removed:'已从收藏移除',
       sec_avatar:'头像图片', sec_bio:'简介', sec_genre:'流派', sec_audio:'Beat标签', sec_tracks:'曲目', sec_sns:'SNS', sec_similar:'相似制作人',
       avatar_hint:'您的图片将在主页显示为头像。', pick_image:'选择图片',
       main_select_label:'选择主页播放的标签', mic_rec:'麦克风录音', internal_audio:'内部音频',
@@ -3228,6 +3278,8 @@
     _set('profile-back', t('back'));
     _setQ('#view-profile > .profile-header > div[style*="uppercase"]', t('profile_label'));
     _set('profile-name-edit-btn', t('edit_name'));
+    _set('profile-share-btn', t('btn_share'));
+    _set('fav-filter-btn', t('fav_filter'));
     _set('profile-name-save', t('save'));
     _set('profile-name-cancel', t('cancel'));
     _setQ('#profile-name-edit .field:nth-child(2) button.btn.accent', t('save'));
@@ -4594,6 +4646,20 @@
     $('#profile-name-edit').classList.remove('hidden');
     $('#profile-name-edit-btn').classList.add('hidden');
   });
+
+  // プロフィールをシェア
+  $('#profile-share-btn').addEventListener('click', function(){
+    if(!currentProfileName) return;
+    var url = location.origin + location.pathname + '?producer=' + encodeURIComponent(currentProfileName);
+    var shareData = { title:'Tag Vault', text: currentProfileName + t('share_text_post'), url: url };
+    if(navigator.share){
+      navigator.share(shareData).catch(function(){});
+    } else if(navigator.clipboard){
+      navigator.clipboard.writeText(url).then(function(){ toast(t('share_copied')); });
+    } else {
+      var ta=document.createElement('textarea'); ta.value=url; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); toast(t('share_copied'));
+    }
+  });
   $('#profile-name-cancel').addEventListener('click', function(){
     $('#profile-name-view').classList.remove('hidden');
     $('#profile-name-edit').classList.add('hidden');
@@ -5106,6 +5172,13 @@
 
   loadTags();
 })();
+
+// Service Worker 登録（PWA / ホーム画面に追加）
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
 </script>
 </body>
 </html>
