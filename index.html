@@ -3797,7 +3797,10 @@
     html+='<div id="match-report-area" style="margin-top:20px;text-align:center;">'+
       '<button id="match-report-toggle" class="btn ghost sm">'+t('match_report_toggle')+'</button>'+
       '<div id="match-report-form" class="hidden" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;max-width:340px;margin-left:auto;margin-right:auto;">'+
-        '<input type="text" id="match-report-input" placeholder="'+t('match_report_ph')+'" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--ink);padding:9px 12px;font-size:13px;outline:none;font-family:inherit;">'+
+        '<div style="position:relative;">'+
+          '<input type="text" id="match-report-input" autocomplete="off" placeholder="'+t('match_report_ph')+'" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--ink);padding:9px 12px;font-size:13px;outline:none;font-family:inherit;">'+
+          '<div id="match-report-suggest" class="suggest-list hidden" style="text-align:left;"></div>'+
+        '</div>'+
         '<button class="btn accent sm" id="match-report-send">'+t('comment_send')+'</button>'+
         '<span class="status" id="match-report-status" style="margin:0;"></span>'+
       '</div>'+
@@ -3808,6 +3811,25 @@
     var rToggle=box.querySelector('#match-report-toggle');
     var rForm=box.querySelector('#match-report-form');
     if(rToggle) rToggle.addEventListener('click', function(){ rForm.classList.toggle('hidden'); });
+
+    // 登録済みプロデューサーの入力候補
+    var rInput=box.querySelector('#match-report-input');
+    var rSuggest=box.querySelector('#match-report-suggest');
+    var allNames=[], _seen={};
+    tags.forEach(function(t){ if(t.name && !_seen[t.name]){ _seen[t.name]=1; allNames.push(t.name); } });
+    if(rInput && rSuggest){
+      rInput.addEventListener('input', function(){
+        var q=rInput.value.trim().toLowerCase();
+        if(!q){ rSuggest.classList.add('hidden'); return; }
+        var hits=allNames.filter(function(n){ return n.toLowerCase().indexOf(q)>=0; }).slice(0,6);
+        if(!hits.length){ rSuggest.classList.add('hidden'); return; }
+        rSuggest.innerHTML=hits.map(function(n){ return '<div class="suggest-item" data-name="'+esc(n)+'"><span class="si-name">'+esc(n)+'</span></div>'; }).join('');
+        rSuggest.classList.remove('hidden');
+        $all('.suggest-item', rSuggest).forEach(function(el){ el.addEventListener('mousedown', function(e){ e.preventDefault(); rInput.value=el.dataset.name; rSuggest.classList.add('hidden'); }); });
+      });
+      rInput.addEventListener('blur', function(){ setTimeout(function(){ rSuggest.classList.add('hidden'); }, 150); });
+    }
+
     var rSend=box.querySelector('#match-report-send');
     if(rSend) rSend.addEventListener('click', function(){
       if(!sb) return;
