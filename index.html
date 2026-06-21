@@ -1110,6 +1110,10 @@
       <h2 style="font-size:22px;font-weight:900;margin-bottom:24px;letter-spacing:-.02em;">統計 <span style="font-size:13px;font-weight:500;color:var(--muted);margin-left:8px;">Stats</span></h2>
       <div id="stats-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:32px;"></div>
       <div style="margin-bottom:32px;">
+        <h3 id="stats-weekly-rank-h" style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;">🔥 今週の人気</h3>
+        <div id="stats-weekly" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+      <div style="margin-bottom:32px;">
         <h3 id="stats-play-rank-h" style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;">🎵 再生数ランキング</h3>
         <div id="stats-plays" style="display:flex;flex-direction:column;gap:8px;"></div>
       </div>
@@ -1457,6 +1461,22 @@
         <div class="similar-grid" id="similar-list"></div>
       </div>
 
+      <!-- コメント -->
+      <div class="profile-section" id="comments-section">
+        <div class="profile-section-head">
+          <h3 id="comments-head">コメント</h3>
+        </div>
+        <div id="comments-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;"></div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <input type="text" id="comment-username" placeholder="ニックネーム（任意）" maxlength="20" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;color:var(--ink);padding:8px 12px;font-size:13px;outline:none;font-family:inherit;">
+          <textarea id="comment-input" rows="2" placeholder="コメントを書く…" maxlength="300" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;color:var(--ink);padding:10px 12px;font-size:13px;resize:vertical;outline:none;font-family:inherit;"></textarea>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <button class="btn accent sm" id="comment-send">送信</button>
+            <span class="status" id="comment-status" style="margin:0;"></span>
+          </div>
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -1607,6 +1627,12 @@
     if(i>=0) f.splice(i,1); else f.push(name);
     try{ localStorage.setItem(FAV_KEY, JSON.stringify(f)); }catch(e){}
     return i<0;
+  }
+
+  /* ---- 再生イベント記録（期間別ランキング用） ---- */
+  function recordPlayEvent(producerName, tagId){
+    if(!sb || !producerName) return;
+    sb.from('play_events').insert({ producer_name: producerName, tag_id: tagId ? String(tagId) : null }).then(function(){}, function(){});
   }
   var currentAudio = null, currentPlayId = null;
   var searchTimer = null;
@@ -2316,6 +2342,7 @@
     // 試聴回数カウント
     tagData.play_count = (tagData.play_count||0) + 1;
     if(sb) sb.from('tags').update({play_count: tagData.play_count}).eq('id', id).then(function(){});
+    recordPlayEvent(tagData.name, id);
 
     // 波形描画
     if(wvCanvas){
@@ -2680,7 +2707,7 @@
       voices_title:'みんなの声 💬', chat_user_ph:'ニックネーム（任意）', chat_msg_ph:'メッセージを入力…', chat_send:'送信',
       settings_title:'設定', settings_lang:'言語 / Language',
       stats_title:'統計', stats_tags:'登録タグ数', stats_producers:'プロデューサー数', stats_plays_total:'総再生回数',
-      stats_play_rank:'🎵 再生数ランキング', stats_view_rank:'👤 プロフィール閲覧数ランキング', stats_genre:'🎛 ジャンル分布',
+      stats_play_rank:'🎵 再生数ランキング', stats_view_rank:'👤 プロフィール閲覧数ランキング', stats_genre:'🎛 ジャンル分布', stats_weekly:'🔥 今週の人気', weekly_empty:'今週はまだ再生がありません',
       add_title:'プロフィールを登録', add_desc:'プロデューサーの情報を入力して登録してください。',
       add_f_name:'プロデューサー名（英語）', add_f_kana:'ひらがな', add_f_desc:'紹介', add_f_genre:'ジャンル', add_f_track:'楽曲名', add_f_track_url:'楽曲URL', add_f_avatar:'アイコン画像',
       add_f_avatar_click:'クリックして画像を選択（JPG / PNG）', add_f_audio:'鳴き声（タグ音声）', add_f_audio_click:'クリックして音声ファイルを選択',
@@ -2688,7 +2715,7 @@
       add_rec:'録音する', add_submit:'登録する', optional:'任意',
       no_results:'見つかりませんでした', no_results_sub:'別のキーワードやジャンルで探してみてください。',
       back:'← 戻る', edit:'編集', delete:'削除', save:'保存', cancel:'キャンセル', register:'登録', save_btn:'保存する', upload:'アップロード',
-      profile_label:'プロフィール紹介', edit_name:'✏ 名前を編集', btn_share:'🔗 シェア', share_copied:'リンクをコピーしました', share_text_post:' のプロデューサータグ図鑑 | Tag Vault', btn_fav:'お気に入り', fav_filter:'★ お気に入り', fav_added:'お気に入りに追加しました', fav_removed:'お気に入りから外しました',
+      profile_label:'プロフィール紹介', edit_name:'✏ 名前を編集', btn_share:'🔗 シェア', share_copied:'リンクをコピーしました', share_text_post:' のプロデューサータグ図鑑 | Tag Vault', btn_fav:'お気に入り', fav_filter:'★ お気に入り', fav_added:'お気に入りに追加しました', fav_removed:'お気に入りから外しました', comments_head:'コメント', comments_empty:'まだコメントがありません', comment_ph:'コメントを書く…', comment_send:'送信', match_report_toggle:'❓ 結果が違う？正解を教える', match_report_ph:'正しいプロデューサー名', match_report_thanks:'報告ありがとうございます！',
       sec_avatar:'アイコン画像', sec_bio:'紹介文', sec_genre:'ジャンル', sec_audio:'鳴き声', sec_tracks:'楽曲', sec_sns:'SNS', sec_similar:'似た声のプロデューサー',
       avatar_hint:'画像を登録するとホーム画面のアイコンに表示されます。', pick_image:'画像を選択',
       main_select_label:'ホームで流すタグを選択', mic_rec:'マイク録音', internal_audio:'内部音声',
@@ -2771,7 +2798,7 @@
       voices_title:'Community 💬', chat_user_ph:'Nickname (optional)', chat_msg_ph:'Type a message…', chat_send:'Send',
       settings_title:'Settings', settings_lang:'Language',
       stats_title:'Stats', stats_tags:'Registered Tags', stats_producers:'Producers', stats_plays_total:'Total Plays',
-      stats_play_rank:'🎵 Play Count Ranking', stats_view_rank:'👤 Profile Views Ranking', stats_genre:'🎛 Genre Distribution',
+      stats_play_rank:'🎵 Play Count Ranking', stats_view_rank:'👤 Profile Views Ranking', stats_genre:'🎛 Genre Distribution', stats_weekly:'🔥 Trending This Week', weekly_empty:'No plays yet this week',
       add_title:'Register Profile', add_desc:'Enter producer info and register.',
       add_f_name:'Producer Name (English)', add_f_kana:'Reading (Kana)', add_f_desc:'Bio', add_f_genre:'Genre', add_f_track:'Track Title', add_f_track_url:'Track URL', add_f_avatar:'Profile Image',
       add_f_avatar_click:'Click to select image (JPG / PNG)', add_f_audio:'Beat Tag (Audio)',  add_f_audio_click:'Click to select audio file',
@@ -2779,7 +2806,7 @@
       add_rec:'Record', add_submit:'Register', optional:'Optional',
       no_results:'No results found', no_results_sub:'Try a different keyword or genre.',
       back:'← Back', edit:'Edit', delete:'Delete', save:'Save', cancel:'Cancel', register:'Register', save_btn:'Save', upload:'Upload',
-      profile_label:'Profile', edit_name:'✏ Edit Name', btn_share:'🔗 Share', share_copied:'Link copied', share_text_post:' on Tag Vault — Producer Tag Encyclopedia', btn_fav:'Favorite', fav_filter:'★ Favorites', fav_added:'Added to favorites', fav_removed:'Removed from favorites',
+      profile_label:'Profile', edit_name:'✏ Edit Name', btn_share:'🔗 Share', share_copied:'Link copied', share_text_post:' on Tag Vault — Producer Tag Encyclopedia', btn_fav:'Favorite', fav_filter:'★ Favorites', fav_added:'Added to favorites', fav_removed:'Removed from favorites', comments_head:'Comments', comments_empty:'No comments yet', comment_ph:'Write a comment…', comment_send:'Send', match_report_toggle:'❓ Wrong result? Tell us the right one', match_report_ph:'Correct producer name', match_report_thanks:'Thanks for the report!',
       sec_avatar:'Profile Image', sec_bio:'Bio', sec_genre:'Genre', sec_audio:'Beat Tags', sec_tracks:'Tracks', sec_sns:'SNS', sec_similar:'Similar Producers',
       avatar_hint:'Your image will appear as the icon on the home screen.', pick_image:'Select Image',
       main_select_label:'Select tag to play on home', mic_rec:'Mic Recording', internal_audio:'Internal Audio',
@@ -2859,7 +2886,7 @@
       voices_title:'커뮤니티 💬', chat_user_ph:'닉네임 (선택)', chat_msg_ph:'메시지 입력…', chat_send:'전송',
       settings_title:'설정', settings_lang:'언어 / Language',
       stats_title:'통계', stats_tags:'등록 태그 수', stats_producers:'프로듀서 수', stats_plays_total:'총 재생 수',
-      stats_play_rank:'🎵 재생 수 랭킹', stats_view_rank:'👤 프로필 조회 수 랭킹', stats_genre:'🎛 장르 분포',
+      stats_play_rank:'🎵 재생 수 랭킹', stats_view_rank:'👤 프로필 조회 수 랭킹', stats_genre:'🎛 장르 분포', stats_weekly:'🔥 이번 주 인기', weekly_empty:'이번 주 재생이 아직 없습니다',
       add_title:'프로필 등록', add_desc:'프로듀서 정보를 입력하고 등록하세요.',
       add_f_name:'프로듀서 이름 (영어)', add_f_kana:'읽기 (가나)', add_f_desc:'소개', add_f_genre:'장르', add_f_track:'곡 제목', add_f_track_url:'곡 URL', add_f_avatar:'프로필 이미지',
       add_f_avatar_click:'이미지를 선택하세요 (JPG / PNG)', add_f_audio:'비트 태그 (오디오)', add_f_audio_click:'오디오 파일을 선택하세요',
@@ -2867,7 +2894,7 @@
       add_rec:'녹음', add_submit:'등록', optional:'선택',
       no_results:'결과를 찾을 수 없습니다', no_results_sub:'다른 키워드나 장르로 검색해 보세요.',
       back:'← 뒤로', edit:'편집', delete:'삭제', save:'저장', cancel:'취소', register:'등록', save_btn:'저장', upload:'업로드',
-      profile_label:'프로필', edit_name:'✏ 이름 편집', btn_share:'🔗 공유', share_copied:'링크를 복사했습니다', share_text_post:' | Tag Vault 프로듀서 태그 도감', btn_fav:'즐겨찾기', fav_filter:'★ 즐겨찾기', fav_added:'즐겨찾기에 추가했습니다', fav_removed:'즐겨찾기에서 제거했습니다',
+      profile_label:'프로필', edit_name:'✏ 이름 편집', btn_share:'🔗 공유', share_copied:'링크를 복사했습니다', share_text_post:' | Tag Vault 프로듀서 태그 도감', btn_fav:'즐겨찾기', fav_filter:'★ 즐겨찾기', fav_added:'즐겨찾기에 추가했습니다', fav_removed:'즐겨찾기에서 제거했습니다', comments_head:'댓글', comments_empty:'아직 댓글이 없습니다', comment_ph:'댓글 작성…', comment_send:'전송', match_report_toggle:'❓ 결과가 틀렸나요? 정답 알려주기', match_report_ph:'올바른 프로듀서 이름', match_report_thanks:'제보 감사합니다!',
       sec_avatar:'프로필 이미지', sec_bio:'소개', sec_genre:'장르', sec_audio:'비트 태그', sec_tracks:'트랙', sec_sns:'SNS', sec_similar:'비슷한 프로듀서',
       avatar_hint:'이미지는 홈 화면의 아이콘으로 표시됩니다.', pick_image:'이미지 선택',
       main_select_label:'홈에서 재생할 태그 선택', mic_rec:'마이크 녹음', internal_audio:'내부 오디오',
@@ -2947,7 +2974,7 @@
       voices_title:'Comunidad 💬', chat_user_ph:'Apodo (opcional)', chat_msg_ph:'Escribe un mensaje…', chat_send:'Enviar',
       settings_title:'Ajustes', settings_lang:'Idioma / Language',
       stats_title:'Estadísticas', stats_tags:'Tags Registrados', stats_producers:'Productores', stats_plays_total:'Total de Reproducciones',
-      stats_play_rank:'🎵 Ranking de Reproducciones', stats_view_rank:'👤 Ranking de Visitas', stats_genre:'🎛 Distribución de Géneros',
+      stats_play_rank:'🎵 Ranking de Reproducciones', stats_view_rank:'👤 Ranking de Visitas', stats_genre:'🎛 Distribución de Géneros', stats_weekly:'🔥 Tendencia esta semana', weekly_empty:'No hay reproducciones esta semana',
       add_title:'Registrar Perfil', add_desc:'Ingresa la información del productor y regístrala.',
       add_f_name:'Nombre del Productor (inglés)', add_f_kana:'Lectura (Kana)', add_f_desc:'Bio', add_f_genre:'Género', add_f_track:'Título de canción', add_f_track_url:'URL de canción', add_f_avatar:'Imagen de perfil',
       add_f_avatar_click:'Haz clic para seleccionar imagen (JPG / PNG)', add_f_audio:'Beat Tag (Audio)', add_f_audio_click:'Haz clic para seleccionar archivo de audio',
@@ -2955,7 +2982,7 @@
       add_rec:'Grabar', add_submit:'Registrar', optional:'Opcional',
       no_results:'Sin resultados', no_results_sub:'Prueba con otra palabra clave o género.',
       back:'← Volver', edit:'Editar', delete:'Eliminar', save:'Guardar', cancel:'Cancelar', register:'Registrar', save_btn:'Guardar', upload:'Subir',
-      profile_label:'Perfil', edit_name:'✏ Editar Nombre', btn_share:'🔗 Compartir', share_copied:'Enlace copiado', share_text_post:' en Tag Vault — Enciclopedia de Tags de Productores', btn_fav:'Favorito', fav_filter:'★ Favoritos', fav_added:'Añadido a favoritos', fav_removed:'Eliminado de favoritos',
+      profile_label:'Perfil', edit_name:'✏ Editar Nombre', btn_share:'🔗 Compartir', share_copied:'Enlace copiado', share_text_post:' en Tag Vault — Enciclopedia de Tags de Productores', btn_fav:'Favorito', fav_filter:'★ Favoritos', fav_added:'Añadido a favoritos', fav_removed:'Eliminado de favoritos', comments_head:'Comentarios', comments_empty:'Aún no hay comentarios', comment_ph:'Escribe un comentario…', comment_send:'Enviar', match_report_toggle:'❓ ¿Resultado incorrecto? Dinos el correcto', match_report_ph:'Nombre correcto del productor', match_report_thanks:'¡Gracias por el reporte!',
       sec_avatar:'Imagen de perfil', sec_bio:'Bio', sec_genre:'Género', sec_audio:'Beat Tags', sec_tracks:'Canciones', sec_sns:'SNS', sec_similar:'Productores similares',
       avatar_hint:'Tu imagen aparecerá como ícono en la pantalla de inicio.', pick_image:'Seleccionar imagen',
       main_select_label:'Seleccionar tag para inicio', mic_rec:'Grabar Micrófono', internal_audio:'Audio Interno',
@@ -3035,7 +3062,7 @@
       voices_title:'Communauté 💬', chat_user_ph:'Pseudo (optionnel)', chat_msg_ph:'Écrivez un message…', chat_send:'Envoyer',
       settings_title:'Paramètres', settings_lang:'Langue / Language',
       stats_title:'Statistiques', stats_tags:'Tags Enregistrés', stats_producers:'Producteurs', stats_plays_total:'Total des Lectures',
-      stats_play_rank:'🎵 Classement des Lectures', stats_view_rank:'👤 Classement des Visites', stats_genre:'🎛 Répartition des Genres',
+      stats_play_rank:'🎵 Classement des Lectures', stats_view_rank:'👤 Classement des Visites', stats_genre:'🎛 Répartition des Genres', stats_weekly:'🔥 Tendances de la semaine', weekly_empty:'Aucune lecture cette semaine',
       add_title:'Enregistrer un Profil', add_desc:'Entrez les informations du producteur et enregistrez.',
       add_f_name:'Nom du Producteur (anglais)', add_f_kana:'Lecture (Kana)', add_f_desc:'Bio', add_f_genre:'Genre', add_f_track:'Titre de chanson', add_f_track_url:'URL de chanson', add_f_avatar:'Image de profil',
       add_f_avatar_click:'Cliquez pour sélectionner une image (JPG / PNG)', add_f_audio:'Beat Tag (Audio)', add_f_audio_click:'Cliquez pour sélectionner un fichier audio',
@@ -3043,7 +3070,7 @@
       add_rec:'Enregistrer', add_submit:'Enregistrer', optional:'Optionnel',
       no_results:'Aucun résultat', no_results_sub:'Essayez un autre mot-clé ou genre.',
       back:'← Retour', edit:'Modifier', delete:'Supprimer', save:'Sauvegarder', cancel:'Annuler', register:'Enregistrer', save_btn:'Sauvegarder', upload:'Téléverser',
-      profile_label:'Profil', edit_name:'✏ Modifier le Nom', btn_share:'🔗 Partager', share_copied:'Lien copié', share_text_post:' sur Tag Vault — Encyclopédie des Tags de Producteurs', btn_fav:'Favori', fav_filter:'★ Favoris', fav_added:'Ajouté aux favoris', fav_removed:'Retiré des favoris',
+      profile_label:'Profil', edit_name:'✏ Modifier le Nom', btn_share:'🔗 Partager', share_copied:'Lien copié', share_text_post:' sur Tag Vault — Encyclopédie des Tags de Producteurs', btn_fav:'Favori', fav_filter:'★ Favoris', fav_added:'Ajouté aux favoris', fav_removed:'Retiré des favoris', comments_head:'Commentaires', comments_empty:'Pas encore de commentaires', comment_ph:'Écrire un commentaire…', comment_send:'Envoyer', match_report_toggle:'❓ Mauvais résultat ? Dites-nous le bon', match_report_ph:'Nom correct du producteur', match_report_thanks:'Merci pour le signalement !',
       sec_avatar:'Image de profil', sec_bio:'Bio', sec_genre:'Genre', sec_audio:'Beat Tags', sec_tracks:'Chansons', sec_sns:'SNS', sec_similar:'Producteurs similaires',
       avatar_hint:'Votre image apparaîtra comme icône sur l\'écran d\'accueil.', pick_image:'Sélectionner une image',
       main_select_label:'Sélectionner le tag pour l\'accueil', mic_rec:'Enregistrement Micro', internal_audio:'Audio Interne',
@@ -3123,7 +3150,7 @@
       voices_title:'社区 💬', chat_user_ph:'昵称（可选）', chat_msg_ph:'输入消息…', chat_send:'发送',
       settings_title:'设置', settings_lang:'语言 / Language',
       stats_title:'统计', stats_tags:'已注册标签', stats_producers:'制作人数', stats_plays_total:'总播放次数',
-      stats_play_rank:'🎵 播放榜', stats_view_rank:'👤 访问榜', stats_genre:'🎛 流派分布',
+      stats_play_rank:'🎵 播放榜', stats_view_rank:'👤 访问榜', stats_genre:'🎛 流派分布', stats_weekly:'🔥 本周热门', weekly_empty:'本周还没有播放',
       add_title:'注册简介', add_desc:'输入制作人信息并注册。',
       add_f_name:'制作人名称（英文）', add_f_kana:'读音（假名）', add_f_desc:'简介', add_f_genre:'流派', add_f_track:'曲目标题', add_f_track_url:'曲目链接', add_f_avatar:'头像图片',
       add_f_avatar_click:'点击选择图片（JPG / PNG）', add_f_audio:'Beat标签（音频）', add_f_audio_click:'点击选择音频文件',
@@ -3131,7 +3158,7 @@
       add_rec:'录音', add_submit:'注册', optional:'可选',
       no_results:'未找到结果', no_results_sub:'请尝试其他关键词或流派。',
       back:'← 返回', edit:'编辑', delete:'删除', save:'保存', cancel:'取消', register:'注册', save_btn:'保存', upload:'上传',
-      profile_label:'简介', edit_name:'✏ 编辑名称', btn_share:'🔗 分享', share_copied:'已复制链接', share_text_post:' | Tag Vault 制作人标签图鉴', btn_fav:'收藏', fav_filter:'★ 收藏', fav_added:'已添加到收藏', fav_removed:'已从收藏移除',
+      profile_label:'简介', edit_name:'✏ 编辑名称', btn_share:'🔗 分享', share_copied:'已复制链接', share_text_post:' | Tag Vault 制作人标签图鉴', btn_fav:'收藏', fav_filter:'★ 收藏', fav_added:'已添加到收藏', fav_removed:'已从收藏移除', comments_head:'评论', comments_empty:'还没有评论', comment_ph:'写评论…', comment_send:'发送', match_report_toggle:'❓ 结果不对？告诉我们正确的', match_report_ph:'正确的制作人名称', match_report_thanks:'感谢您的反馈！',
       sec_avatar:'头像图片', sec_bio:'简介', sec_genre:'流派', sec_audio:'Beat标签', sec_tracks:'曲目', sec_sns:'SNS', sec_similar:'相似制作人',
       avatar_hint:'您的图片将在主页显示为头像。', pick_image:'选择图片',
       main_select_label:'选择主页播放的标签', mic_rec:'麦克风录音', internal_audio:'内部音频',
@@ -3241,6 +3268,7 @@
 
     // 統計
     var stt=$('#browse-stats h2'); if(stt) stt.innerHTML=t('stats_title')+' <span style="font-size:13px;font-weight:500;color:var(--muted);margin-left:8px;">Stats</span>';
+    _setQ('#stats-weekly-rank-h', t('stats_weekly'));
     _setQ('#stats-play-rank-h', t('stats_play_rank'));
     _setQ('#stats-view-rank-h', t('stats_view_rank'));
     _setQ('#stats-genre-h', t('stats_genre'));
@@ -3280,6 +3308,10 @@
     _set('profile-name-edit-btn', t('edit_name'));
     _set('profile-share-btn', t('btn_share'));
     _set('fav-filter-btn', t('fav_filter'));
+    _setQ('#comments-head', t('comments_head'));
+    _set('comment-send', t('comment_send'));
+    _setPH('comment-input', t('comment_ph'));
+    _setPH('comment-username', t('chat_user_ph'));
     _set('profile-name-save', t('save'));
     _set('profile-name-cancel', t('cancel'));
     _setQ('#profile-name-edit .field:nth-child(2) button.btn.accent', t('save'));
@@ -3739,8 +3771,34 @@
       var playBtn = s.t.audioPath ? '<button class="rrow-play" data-path="'+esc(s.t.audioPath)+'">▶</button>' : '';
       html+='<div class="rrow"><span class="rank">'+(i+1)+'</span><span class="rn rn-link" data-name="'+esc(s.t.name)+'">'+esc(s.t.name)+'</span><span class="bar"><span style="width:'+Math.min(100,p)+'%"></span></span><span class="pct">'+p+'%</span>'+playBtn+'</div>';
     });
+    // 誤判定の報告
+    html+='<div id="match-report-area" style="margin-top:20px;text-align:center;">'+
+      '<button id="match-report-toggle" class="btn ghost sm">'+t('match_report_toggle')+'</button>'+
+      '<div id="match-report-form" class="hidden" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;max-width:340px;margin-left:auto;margin-right:auto;">'+
+        '<input type="text" id="match-report-input" placeholder="'+t('match_report_ph')+'" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--ink);padding:9px 12px;font-size:13px;outline:none;font-family:inherit;">'+
+        '<button class="btn accent sm" id="match-report-send">'+t('comment_send')+'</button>'+
+        '<span class="status" id="match-report-status" style="margin:0;"></span>'+
+      '</div>'+
+    '</div>';
     var box=$('#m-results');
     box.innerHTML=html;
+    var wrongName = top ? top.t.name : null;
+    var rToggle=box.querySelector('#match-report-toggle');
+    var rForm=box.querySelector('#match-report-form');
+    if(rToggle) rToggle.addEventListener('click', function(){ rForm.classList.toggle('hidden'); });
+    var rSend=box.querySelector('#match-report-send');
+    if(rSend) rSend.addEventListener('click', function(){
+      if(!sb) return;
+      var correct=box.querySelector('#match-report-input').value.trim();
+      if(!correct){ box.querySelector('#match-report-status').textContent=t('st_msg_req'); return; }
+      rSend.disabled=true;
+      box.querySelector('#match-report-status').textContent=t('st_sending');
+      sb.from('match_reports').insert({ correct_name:correct, wrong_name:wrongName, note:null }).then(function(r){
+        rSend.disabled=false;
+        if(r.error){ box.querySelector('#match-report-status').textContent=t('st_send_fail')+r.error.message; }
+        else { rForm.classList.add('hidden'); toast(t('match_report_thanks')); }
+      });
+    });
     var nmLink=box.querySelector('.nm-link');
     if(nmLink) nmLink.addEventListener('click', function(){ openProfile(nmLink.dataset.name); switchView('profile'); });
     $all('.rn-link', box).forEach(function(el){ el.addEventListener('click', function(){ openProfile(el.dataset.name); switchView('profile'); }); });
@@ -4007,8 +4065,50 @@
     renderSimilarProducers(producerName);
 
     loadTracks(producerName);
+    loadComments(producerName);
     switchView('profile');
   }
+
+  /* ---- コメント ---- */
+  function renderComments(data){
+    var list = $('#comments-list');
+    if(!data || !data.length){
+      list.innerHTML = '<p style="font-size:13px;color:var(--muted);">'+t('comments_empty')+'</p>';
+      return;
+    }
+    list.innerHTML = data.map(function(c){
+      var name = c.username ? esc(c.username) : t('anonymous');
+      var when = c.created_at ? new Date(c.created_at).toLocaleDateString('ja') : '';
+      return '<div style="background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:10px;padding:10px 14px;">'+
+        '<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">'+
+          '<span style="font-size:12px;font-weight:700;color:var(--accent);">'+name+'</span>'+
+          '<span style="font-size:11px;color:var(--muted);">'+when+'</span>'+
+        '</div>'+
+        '<div style="font-size:13px;line-height:1.6;white-space:pre-wrap;">'+esc(c.message)+'</div>'+
+      '</div>';
+    }).join('');
+  }
+  function loadComments(producerName){
+    if(!sb) return;
+    $('#comments-list').innerHTML = '<p style="font-size:13px;color:var(--muted);">'+t('st_loading')+'</p>';
+    sb.from('comments').select('*').eq('producer_name', producerName).order('created_at',{ascending:false}).limit(100).then(function(r){
+      if(!r.error) renderComments(r.data);
+      else $('#comments-list').innerHTML = '<p style="font-size:13px;color:var(--muted);">'+t('comments_empty')+'</p>';
+    });
+  }
+  $('#comment-send').addEventListener('click', function(){
+    if(!sb || !currentProfileName) return;
+    var msg = $('#comment-input').value.trim();
+    if(!msg){ $('#comment-status').textContent = t('st_msg_req'); return; }
+    var username = $('#comment-username').value.trim() || null;
+    var btn = $('#comment-send'); btn.disabled = true;
+    $('#comment-status').textContent = t('st_sending');
+    sb.from('comments').insert({ producer_name: currentProfileName, username: username, message: msg }).then(function(r){
+      btn.disabled = false;
+      if(r.error){ $('#comment-status').textContent = t('st_send_fail')+r.error.message; }
+      else { $('#comment-input').value=''; $('#comment-status').textContent=''; loadComments(currentProfileName); }
+    });
+  });
 
   /* ---- Profile avatar handlers ---- */
   var pendingAvatarFile = null;
@@ -4226,6 +4326,39 @@
   $('#quiz-back').addEventListener('click', function(){ stopQuizAudio(); goBack(); });
 
 
+  function renderWeeklyRanking(){
+    if(!sb) return;
+    var weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString();
+    sb.from('play_events').select('producer_name').gte('created_at', weekAgo).limit(5000).then(function(r){
+      var box = $('#stats-weekly');
+      if(r.error || !r.data || !r.data.length){
+        box.innerHTML = '<p style="font-size:13px;color:var(--muted);">'+t('weekly_empty')+'</p>';
+        return;
+      }
+      var counts = {};
+      r.data.forEach(function(e){ if(e.producer_name) counts[e.producer_name]=(counts[e.producer_name]||0)+1; });
+      var ranked = Object.keys(counts).map(function(n){ return {name:n, count:counts[n]}; })
+        .sort(function(a,b){ return b.count-a.count; }).slice(0,10);
+      var maxC = ranked[0] ? ranked[0].count : 1;
+      box.innerHTML = ranked.map(function(d,i){
+        var pct = Math.round((d.count/maxC)*100);
+        return '<div style="display:flex;align-items:center;gap:10px;">'+
+          '<span style="font-size:12px;font-weight:700;color:var(--muted);width:20px;text-align:right;">'+(i+1)+'</span>'+
+          '<div style="flex:1;">'+
+            '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'+
+              '<span class="weekly-rank-link" data-name="'+esc(d.name)+'" style="font-size:13px;font-weight:700;cursor:pointer;">'+esc(d.name)+'</span>'+
+              '<span style="font-size:12px;color:var(--accent);font-weight:700;">'+d.count+t('card_plays_post')+'</span>'+
+            '</div>'+
+            '<div style="height:4px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden;">'+
+              '<div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#ffcc00,#ff8c28);border-radius:999px;"></div>'+
+            '</div>'+
+          '</div>'+
+        '</div>';
+      }).join('');
+      $all('.weekly-rank-link', box).forEach(function(el){ el.addEventListener('click', function(){ openProfile(el.dataset.name); }); });
+    });
+  }
+
   function renderStats(){
     if(!sb) return;
     // サマリー
@@ -4245,6 +4378,9 @@
         '<div style="font-size:11px;color:var(--muted);margin-top:4px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;">'+d[0]+'</div>'+
       '</div>';
     }).join('');
+
+    // 今週の人気（過去7日間の再生イベントを集計）
+    renderWeeklyRanking();
 
     // 再生数ランキング
     var sorted = tags.filter(function(t){ return t.play_count>0; }).sort(function(a,b){ return (b.play_count||0)-(a.play_count||0); }).slice(0,10);
