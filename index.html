@@ -1634,6 +1634,27 @@
     if(!sb || !producerName) return;
     sb.from('play_events').insert({ producer_name: producerName, tag_id: tagId ? String(tagId) : null }).then(function(){}, function(){});
   }
+
+  /* ---- 自己学習：誤判定報告から集めた指紋 ---- */
+  var learnedFps = {};
+  function loadLearnedFps(){
+    if(!sb) return;
+    sb.from('match_reports').select('correct_name,fp').then(function(r){
+      if(r.error || !r.data) return;
+      var map = {};
+      r.data.forEach(function(row){
+        if(row.correct_name && row.fp && row.fp.length){ (map[row.correct_name]=map[row.correct_name]||[]).push(row.fp); }
+      });
+      learnedFps = map;
+    }, function(){});
+  }
+  // タグ本来の指紋＋学習済み指紋の中で最も近いスコアを返す
+  function bestScore(fp, tag){
+    var s = similarity(fp, tag.fp);
+    var ex = learnedFps[tag.name];
+    if(ex){ for(var i=0;i<ex.length;i++){ var s2=similarity(fp, ex[i]); if(s2>s) s=s2; } }
+    return s;
+  }
   var currentAudio = null, currentPlayId = null;
   var searchTimer = null;
 
@@ -1820,6 +1841,7 @@
       buildGenreFilters();
       renderGrid();
       renderStats();
+      loadLearnedFps();
       if(window._quizPending){ window._quizPending=false; nextQuestion(); }
       // 共有リンク（?producer=名前）から直接プロフィールを開く（初回のみ）
       if(!window._deepLinkChecked){
@@ -3757,7 +3779,7 @@
   }
 
   // 照合結果のHTMLを描画＆イベント設定（録音・ファイル共通）
-  function renderMatchResults(scored){
+  function renderMatchResults(scored, recordedFp){
     stopMatchAudio();
     var top=scored[0], hit=top&&top.score>=0.75, html='';
     if(hit){
@@ -3793,10 +3815,14 @@
       if(!correct){ box.querySelector('#match-report-status').textContent=t('st_msg_req'); return; }
       rSend.disabled=true;
       box.querySelector('#match-report-status').textContent=t('st_sending');
-      sb.from('match_reports').insert({ correct_name:correct, wrong_name:wrongName, note:null }).then(function(r){
+      sb.from('match_reports').insert({ correct_name:correct, wrong_name:wrongName, note:null, fp:(recordedFp||null) }).then(function(r){
         rSend.disabled=false;
         if(r.error){ box.querySelector('#match-report-status').textContent=t('st_send_fail')+r.error.message; }
-        else { rForm.classList.add('hidden'); toast(t('match_report_thanks')); }
+        else {
+          rForm.classList.add('hidden'); toast(t('match_report_thanks'));
+          // 即座に学習へ反映
+          if(recordedFp){ (learnedFps[correct]=learnedFps[correct]||[]).push(recordedFp); }
+        }
       });
     });
     var nmLink=box.querySelector('.nm-link');
@@ -3821,9 +3847,9 @@
   function runMatch(samples){
     if(tags.length===0){ $('#m-status').textContent=t('st_no_tags_db'); return; }
     var fp=fingerprint(samples);
-    var scored=tags.map(function(t){ return {t:t, score:similarity(fp,t.fp)}; }).sort(function(a,b){return b.score-a.score;});
+    var scored=tags.map(function(t){ return {t:t, score:bestScore(fp,t)}; }).sort(function(a,b){return b.score-a.score;});
     $('#m-status').textContent='';
-    var res=renderMatchResults(scored);
+    var res=renderMatchResults(scored, fp);
     if(res.hit){ setTimeout(function(){ showHitEffect(res.top.t); sfxMatch(); }, 100); }
   }
 
@@ -3892,10 +3918,10 @@
   function showHeroResult(samples){
     if(tags.length===0){ heroMatchStatus.textContent=t('st_no_tags'); return; }
     var fp=fingerprint(samples);
-    var scored=tags.map(function(t){ return {t:t, score:similarity(fp,t.fp)}; }).sort(function(a,b){return b.score-a.score;});
+    var scored=tags.map(function(t){ return {t:t, score:bestScore(fp,t)}; }).sort(function(a,b){return b.score-a.score;});
     searchPopup.classList.add('hidden');
     switchView('match');
-    var res=renderMatchResults(scored);
+    var res=renderMatchResults(scored, fp);
     if(res.hit){ setTimeout(function(){ showHitEffect(res.top.t); sfxMatch(); }, 100); }
   }
 
