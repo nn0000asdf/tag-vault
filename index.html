@@ -356,6 +356,16 @@
   .bar { flex: 1; height: 6px; background: var(--paper2); border-radius: 3px; overflow: hidden; }
   .bar > span { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width .5s ease-out; }
   .pct { flex: 0 0 40px; text-align: right; font-size: 12px; font-weight: 700; color: var(--accent); }
+  .rrow .rn-link { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(0,212,255,.4); }
+  .rrow .rn-link:hover { color: var(--accent); }
+  .rrow-play {
+    flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+    border: 1px solid rgba(0,212,255,.3); background: rgba(0,212,255,.06); color: var(--accent);
+    cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center;
+    transition: all .12s; font-family: inherit;
+  }
+  .rrow-play:hover { background: rgba(0,212,255,.15); border-color: var(--accent); box-shadow: 0 0 10px rgba(0,212,255,.2); }
+  .rrow-play.playing { background: var(--accent); color: #000; }
 
   /* ---- Empty / States ---- */
   .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
@@ -1725,6 +1735,7 @@
 
   function switchView(v, pushHistory){
     if(pushHistory !== false && v !== currentView) viewHistory.push(currentView);
+    if(v!=='match' && typeof stopMatchAudio==='function') stopMatchAudio();
     currentView = v;
     $all('[data-view]').forEach(function(b){ b.classList.toggle('active', b.dataset.view===v); });
     ['browse','add','match','profile','quiz'].forEach(function(name){ $('#view-'+name).classList.toggle('hidden', name!==v); });
@@ -2641,7 +2652,7 @@
       st_sending:'送信中…', st_saving:'保存中…', st_saved:'保存しました ✓', st_uploading:'アップロード中…',
       st_rec_active:'🔴 録音中…', st_rec_stop:'録音中（停止ボタンで終了）', st_rec_internal:'内部音声を録音中（停止ボタンで終了）',
       st_no_tags:'図鑑にまだタグがありません', st_match_found:'✓ 一致しました', st_by:'投稿：', st_sim:'一致度 ',
-      st_no_match:'一致なし', st_no_match_sub:'図鑑の中に近いタグが見つかりませんでした',
+      st_no_match:'一致なし', st_no_match_sub:'図鑑の中に近いタグが見つかりませんでした', match_candidates:'候補（再生して確認）',
       st_select_img:'画像を選択してください', st_img_saved:'画像登録済み', st_err:'エラー: ',
       st_del_failed:'削除できませんでした: ', st_confirm_del_avatar:'アイコン画像を削除しますか？',
       st_saved_main:'メインのビートメーカータグを保存しました',
@@ -2732,7 +2743,7 @@
       st_sending:'Sending…', st_saving:'Saving…', st_saved:'Saved ✓', st_uploading:'Uploading…',
       st_rec_active:'🔴 Recording…', st_rec_stop:'Recording (press stop to finish)', st_rec_internal:'Recording internal audio (press stop to finish)',
       st_no_tags:'No tags in database yet', st_match_found:'✓ Match found', st_by:'By: ', st_sim:'Similarity ',
-      st_no_match:'No match', st_no_match_sub:'No close match found in the database',
+      st_no_match:'No match', st_no_match_sub:'No close match found in the database', match_candidates:'Candidates (play to check)',
       st_select_img:'Please select an image', st_img_saved:'Image saved', st_err:'Error: ',
       st_del_failed:'Could not delete: ', st_confirm_del_avatar:'Delete profile image?',
       st_saved_main:'Main beat maker tag saved',
@@ -2820,7 +2831,7 @@
       st_sending:'전송 중…', st_saving:'저장 중…', st_saved:'저장됨 ✓', st_uploading:'업로드 중…',
       st_rec_active:'🔴 녹음 중…', st_rec_stop:'녹음 중 (정지 버튼으로 종료)', st_rec_internal:'내부 오디오 녹음 중 (정지 버튼으로 종료)',
       st_no_tags:'데이터베이스에 태그가 없습니다', st_match_found:'✓ 일치 발견', st_by:'등록: ', st_sim:'유사도 ',
-      st_no_match:'일치 없음', st_no_match_sub:'데이터베이스에서 가까운 일치를 찾지 못했습니다',
+      st_no_match:'일치 없음', st_no_match_sub:'데이터베이스에서 가까운 일치를 찾지 못했습니다', match_candidates:'후보 (재생하여 확인)',
       st_select_img:'이미지를 선택하세요', st_img_saved:'이미지 저장됨', st_err:'오류: ',
       st_del_failed:'삭제 실패: ', st_confirm_del_avatar:'프로필 이미지를 삭제하시겠습니까？',
       st_saved_main:'메인 비트메이커 태그가 저장되었습니다',
@@ -2908,7 +2919,7 @@
       st_sending:'Enviando…', st_saving:'Guardando…', st_saved:'Guardado ✓', st_uploading:'Subiendo…',
       st_rec_active:'🔴 Grabando…', st_rec_stop:'Grabando (presiona detener para terminar)', st_rec_internal:'Grabando audio interno (presiona detener para terminar)',
       st_no_tags:'No hay tags en la base de datos', st_match_found:'✓ Coincidencia encontrada', st_by:'Por: ', st_sim:'Similitud ',
-      st_no_match:'Sin coincidencia', st_no_match_sub:'No se encontró coincidencia cercana en la base de datos',
+      st_no_match:'Sin coincidencia', st_no_match_sub:'No se encontró coincidencia cercana en la base de datos', match_candidates:'Candidatos (reproduce para verificar)',
       st_select_img:'Por favor selecciona una imagen', st_img_saved:'Imagen guardada', st_err:'Error: ',
       st_del_failed:'No se pudo eliminar: ', st_confirm_del_avatar:'¿Eliminar imagen de perfil?',
       st_saved_main:'Tag principal guardado',
@@ -2996,7 +3007,7 @@
       st_sending:'Envoi…', st_saving:'Sauvegarde…', st_saved:'Sauvegardé ✓', st_uploading:'Téléversement…',
       st_rec_active:'🔴 Enregistrement…', st_rec_stop:'Enregistrement (appuyez sur arrêt pour terminer)', st_rec_internal:'Enregistrement audio interne (appuyez sur arrêt pour terminer)',
       st_no_tags:'Aucun tag dans la base de données', st_match_found:'✓ Correspondance trouvée', st_by:'Par : ', st_sim:'Similarité ',
-      st_no_match:'Aucune correspondance', st_no_match_sub:'Aucune correspondance proche trouvée dans la base de données',
+      st_no_match:'Aucune correspondance', st_no_match_sub:'Aucune correspondance proche trouvée dans la base de données', match_candidates:'Candidats (lire pour vérifier)',
       st_select_img:'Veuillez sélectionner une image', st_img_saved:'Image sauvegardée', st_err:'Erreur : ',
       st_del_failed:'Impossible de supprimer : ', st_confirm_del_avatar:'Supprimer l\'image de profil ?',
       st_saved_main:'Tag principal sauvegardé',
@@ -3084,7 +3095,7 @@
       st_sending:'发送中…', st_saving:'保存中…', st_saved:'已保存 ✓', st_uploading:'上传中…',
       st_rec_active:'🔴 录音中…', st_rec_stop:'录音中（按停止按钮结束）', st_rec_internal:'录制内部音频中（按停止按钮结束）',
       st_no_tags:'数据库中还没有标签', st_match_found:'✓ 找到匹配', st_by:'提交者：', st_sim:'相似度 ',
-      st_no_match:'无匹配', st_no_match_sub:'数据库中未找到相近的匹配',
+      st_no_match:'无匹配', st_no_match_sub:'数据库中未找到相近的匹配', match_candidates:'候选（播放确认）',
       st_select_img:'请选择一张图片', st_img_saved:'图片已保存', st_err:'错误：',
       st_del_failed:'删除失败：', st_confirm_del_avatar:'删除头像图片？',
       st_saved_main:'主要Beat标签已保存',
@@ -3654,28 +3665,56 @@
   });
 
   /* ---- MATCH ---- */
+  // 照合結果の候補プレイヤー用
+  var matchAudio=null, matchPlayBtn=null;
+  function stopMatchAudio(){
+    if(matchAudio){ matchAudio.pause(); matchAudio=null; }
+    if(matchPlayBtn){ matchPlayBtn.textContent='▶'; matchPlayBtn.classList.remove('playing'); matchPlayBtn=null; }
+  }
+
+  // 照合結果のHTMLを描画＆イベント設定（録音・ファイル共通）
+  function renderMatchResults(scored){
+    stopMatchAudio();
+    var top=scored[0], hit=top&&top.score>=0.75, html='';
+    if(hit){
+      html+='<div class="result-head hit"><div class="lbl">'+t('st_match_found')+'</div><div class="nm nm-link" data-name="'+esc(top.t.name)+'">'+esc(top.t.name)+'</div><div class="by">'+t('st_by')+esc(top.t.author||t('anonymous'))+'　｜　'+t('st_sim')+Math.round(top.score*100)+'%</div></div>';
+    } else {
+      html+='<div class="result-head"><div class="nm" style="font-size:17px;opacity:.7">'+t('st_no_match')+'</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">'+t('st_no_match_sub')+'</div></div>';
+    }
+    html+='<div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:18px 0 10px;">'+t('match_candidates')+'</div>';
+    scored.slice(0,3).forEach(function(s,i){
+      var p=Math.round(s.score*100);
+      var playBtn = s.t.audioPath ? '<button class="rrow-play" data-path="'+esc(s.t.audioPath)+'">▶</button>' : '';
+      html+='<div class="rrow"><span class="rank">'+(i+1)+'</span><span class="rn rn-link" data-name="'+esc(s.t.name)+'">'+esc(s.t.name)+'</span><span class="bar"><span style="width:'+Math.min(100,p)+'%"></span></span><span class="pct">'+p+'%</span>'+playBtn+'</div>';
+    });
+    var box=$('#m-results');
+    box.innerHTML=html;
+    var nmLink=box.querySelector('.nm-link');
+    if(nmLink) nmLink.addEventListener('click', function(){ openProfile(nmLink.dataset.name); switchView('profile'); });
+    $all('.rn-link', box).forEach(function(el){ el.addEventListener('click', function(){ openProfile(el.dataset.name); switchView('profile'); }); });
+    $all('.rrow-play', box).forEach(function(b){
+      b.addEventListener('click', function(){
+        if(matchPlayBtn===b){ stopMatchAudio(); return; }
+        stopMatchAudio();
+        if(!sb) return;
+        var pub=sb.storage.from(BUCKET).getPublicUrl(b.dataset.path);
+        var url=pub&&pub.data&&pub.data.publicUrl; if(!url) return;
+        matchAudio=new Audio(url); matchPlayBtn=b;
+        b.textContent='■'; b.classList.add('playing');
+        matchAudio.play().catch(function(){});
+        matchAudio.addEventListener('ended', stopMatchAudio);
+      });
+    });
+    return { top:top, hit:hit };
+  }
+
   function runMatch(samples){
     if(tags.length===0){ $('#m-status').textContent=t('st_no_tags_db'); return; }
     var fp=fingerprint(samples);
     var scored=tags.map(function(t){ return {t:t, score:similarity(fp,t.fp)}; }).sort(function(a,b){return b.score-a.score;});
     $('#m-status').textContent='';
-    var top=scored[0], hit=top&&top.score>=0.75, html='';
-    if(hit){
-      html+='<div class="result-head hit"><div class="lbl">'+t('st_match_found')+'</div><div class="nm nm-link" data-name="'+esc(top.t.name)+'">'+esc(top.t.name)+'</div><div class="by">'+t('st_by')+esc(top.t.author||t('anonymous'))+'　｜　'+t('st_sim')+Math.round(top.t? top.score*100:0)+'%</div></div>';
-      setTimeout(function(){ showHitEffect(top.t); sfxMatch(); }, 100);
-    } else {
-      html+='<div class="result-head"><div class="nm" style="font-size:17px;opacity:.7">'+t('st_no_match')+'</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">'+t('st_no_match_sub')+'</div></div>';
-    }
-    scored.slice(0,5).forEach(function(s,i){
-      var p=Math.round(s.score*100);
-      html+='<div class="rrow"><span class="rank">'+(i+1)+'</span><span class="rn">'+esc(s.t.name)+'</span><span class="bar"><span style="width:'+Math.min(100,p)+'%"></span></span><span class="pct">'+p+'%</span></div>';
-    });
-    $('#m-results').innerHTML=html;
-    var nmLink2 = $('#m-results').querySelector('.nm-link');
-    if(nmLink2) nmLink2.addEventListener('click', function(){
-      openProfile(nmLink2.dataset.name);
-      switchView('profile');
-    });
+    var res=renderMatchResults(scored);
+    if(res.hit){ setTimeout(function(){ showHitEffect(res.top.t); sfxMatch(); }, 100); }
   }
 
   function captureAuto(seconds, onStatus){
@@ -3745,25 +3784,9 @@
     var fp=fingerprint(samples);
     var scored=tags.map(function(t){ return {t:t, score:similarity(fp,t.fp)}; }).sort(function(a,b){return b.score-a.score;});
     searchPopup.classList.add('hidden');
-    $('#m-results').innerHTML='';
     switchView('match');
-    var top=scored[0], hit=top&&top.score>=0.75, html='';
-    if(hit){
-      html+='<div class="result-head hit"><div class="lbl">'+t('st_match_found')+'</div><div class="nm nm-link" data-name="'+esc(top.t.name)+'">'+esc(top.t.name)+'</div><div class="by">'+t('st_by')+esc(top.t.author||t('anonymous'))+'　｜　'+t('st_sim')+Math.round(top.score*100)+'%</div></div>';
-      setTimeout(function(){ showHitEffect(top.t); sfxMatch(); }, 100);
-    } else {
-      html+='<div class="result-head"><div class="nm" style="font-size:17px;opacity:.7">'+t('st_no_match')+'</div><div style="font-size:13px;color:var(--muted);margin-top:4px;">'+t('st_no_match_sub')+'</div></div>';
-    }
-    scored.slice(0,5).forEach(function(s,i){
-      var p=Math.round(s.score*100);
-      html+='<div class="rrow"><span class="rank">'+(i+1)+'</span><span class="rn">'+esc(s.t.name)+'</span><span class="bar"><span style="width:'+Math.min(100,p)+'%"></span></span><span class="pct">'+p+'%</span></div>';
-    });
-    $('#m-results').innerHTML=html;
-    var nmLink = $('#m-results').querySelector('.nm-link');
-    if(nmLink) nmLink.addEventListener('click', function(){
-      openProfile(nmLink.dataset.name);
-      switchView('profile');
-    });
+    var res=renderMatchResults(scored);
+    if(res.hit){ setTimeout(function(){ showHitEffect(res.top.t); sfxMatch(); }, 100); }
   }
 
   var heroRecBtn = $('#hero-rec-btn');
