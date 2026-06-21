@@ -1100,6 +1100,7 @@
         <h3 id="stats-genre-h" style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;">🎛 ジャンル分布</h3>
         <div id="stats-genres" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
       </div>
+
     </div>
   </section>
 
@@ -1637,7 +1638,8 @@
 
   function fingerprint(samples){
     var SR=TARGET_SR, WIN=2048, HOP=512, N_MEL=40, i, m;
-    var F_MIN=80, F_MAX=Math.min(8000, SR/2);
+    var F_MIN=80, F_MAX=Math.min(10000, SR/2);
+    var N_SEG=3; // 音声を3分割して時間的特徴を保持
 
     // プリエンファシス（高周波強調）
     var pre=new Float32Array(samples.length);
@@ -1658,32 +1660,43 @@
     var win=new Float32Array(WIN);
     for(i=0;i<WIN;i++) win[i]=0.5-0.5*Math.cos(2*Math.PI*i/(WIN-1));
 
-    // フレームごとにメルエネルギーを蓄積
-    var melAcc=new Float32Array(N_MEL), frameCount=0;
+    // 全フレームのメルエネルギーを収集
+    var allFrames=[];
     for(var st=0;st+WIN<=pre.length;st+=HOP){
       var re=new Float32Array(WIN), im=new Float32Array(WIN);
       for(i=0;i<WIN;i++) re[i]=pre[st+i]*win[i];
       fft(re,im);
       var pow=new Float32Array(WIN/2);
       for(i=0;i<WIN/2;i++) pow[i]=re[i]*re[i]+im[i]*im[i];
+      var mel=new Float32Array(N_MEL);
       for(m=0;m<N_MEL;m++){
         var lo=binPts[m], center=binPts[m+1], hi=binPts[m+2], e=0;
         for(var k=lo;k<center&&k<pow.length;k++) e+=pow[k]*(k-lo+1)/(center-lo+1);
         for(var k=center;k<hi&&k<pow.length;k++) e+=pow[k]*(hi-k)/(hi-center+1);
-        melAcc[m]+=Math.log(e+1e-9);
+        mel[m]=Math.log(e+1e-9);
       }
-      frameCount++;
+      allFrames.push(mel);
     }
 
-    // フレーム平均して正規化
+    if(!allFrames.length) return [];
+
+    // N_SEG 分割してセグメントごとに平均・正規化したベクトルを結合
     var result=[];
-    var mean=0;
-    for(m=0;m<N_MEL;m++){ melAcc[m]/=(frameCount||1); mean+=melAcc[m]; }
-    mean/=N_MEL;
-    var std=0;
-    for(m=0;m<N_MEL;m++) std+=Math.pow(melAcc[m]-mean,2);
-    std=Math.sqrt(std/N_MEL)+1e-9;
-    for(m=0;m<N_MEL;m++) result.push((melAcc[m]-mean)/std);
+    var framesPerSeg=Math.ceil(allFrames.length/N_SEG);
+    for(var seg=0;seg<N_SEG;seg++){
+      var start=seg*framesPerSeg;
+      var end=Math.min(start+framesPerSeg, allFrames.length);
+      var acc=new Float32Array(N_MEL);
+      var cnt=end-start;
+      if(cnt<=0) cnt=1;
+      for(var f=start;f<end;f++) for(m=0;m<N_MEL;m++) acc[m]+=allFrames[f][m];
+      for(m=0;m<N_MEL;m++) acc[m]/=cnt;
+      // z正規化
+      var mean=0; for(m=0;m<N_MEL;m++) mean+=acc[m]; mean/=N_MEL;
+      var std=0; for(m=0;m<N_MEL;m++) std+=Math.pow(acc[m]-mean,2);
+      std=Math.sqrt(std/N_MEL)+1e-9;
+      for(m=0;m<N_MEL;m++) result.push((acc[m]-mean)/std);
+    }
     return result;
   }
 
@@ -4136,6 +4149,7 @@
   $('#match-back').addEventListener('click', goBack);
   $('#profile-back').addEventListener('click', goBack);
   $('#quiz-back').addEventListener('click', function(){ stopQuizAudio(); goBack(); });
+
 
   function renderStats(){
     if(!sb) return;
